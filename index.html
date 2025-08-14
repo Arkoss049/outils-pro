@@ -4,14 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dashboard Prévoyance + Prime (v6.7 — Plan + Simulation mensuelle + Historique)</title>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
-window.addEventListener('beforeunload', ()=>{
-  try {
-    const per = document.getElementById('per');
-    if(per && per.__perCleanup) per.__perCleanup();
-  } catch(e){}
-});
-</script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -1702,7 +1695,7 @@ function buildPERPanel(){
         </div>
       </section>
     </div>`;
-  const perPath = './Simulateur_PER_ProPlus_v5_4_topoUnder_fixSortie__safeLS.html';
+  const perPath = './Simulateur_PER_ProPlus_v5_4_topoUnder_fixSortie.html';
   const statusEl = document.getElementById('per-status');
   const linkEl = document.getElementById('per-direct-link');
   linkEl.href = perPath;
@@ -1715,7 +1708,7 @@ function buildPERPanel(){
       fram.src = perPath;
     } catch (err) {
       statusEl.innerHTML = 'Impossible de charger le simulateur PER. ' +
-        'Vérifiez que le fichier <code>Simulateur_PER_ProPlus_v5_4_topoUnder_fixSortie__safeLS.html</code> ' +
+        'Vérifiez que le fichier <code>Simulateur_PER_ProPlus_v5_4_topoUnder_fixSortie.html</code> ' +
         'se trouve au <b>même niveau</b> que <code>index.html</code> et que le nom est <b>exact</b>.' +
         '<br>Erreur : ' + String(err);
       const tips = document.createElement('div');
@@ -1730,21 +1723,6 @@ function buildPERPanel(){
       console.error(err);
     }
   })();
-}
- catch(err) {
-    const info = root.querySelector('.small');
-    if(info) info.textContent = 'Impossible de charger le simulateur PER (' + err + ')';
-  }
-}
-);
-const __perUrl = URL.createObjectURL(__perBlob);
-fram.src = __perUrl;
-// Cleanup on panel rebuild
-root.__perCleanup = () => { try { URL.revokeObjectURL(__perUrl); } catch(e){} };
-  } catch(err) {
-    const info = root.querySelector('.small');
-    if(info) info.textContent = 'Impossible de charger le simulateur PER (' + err + ')';
-  }
 }
 /* ===== Assurance Vie — Simulateur (intégré) ===== */
 function buildAVPanel(){
