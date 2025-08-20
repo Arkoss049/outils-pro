@@ -81,6 +81,8 @@ svg{width:100%; height:auto}
   <div class="tab" data-tab="av">Assurance Vie</div>
   <div class="tab" data-tab="per">PER</div>
   <div class="tab" data-tab="library">Argumentaires</div>
+  <div class="tab" data-tab="gav">Aide à la vente (GAV)</div>
+  <div class="tab" data-tab="simudc">Simulation DC</div>
 </div>
 
 <div id="prev" class="panel active"></div>
@@ -90,6 +92,19 @@ svg{width:100%; height:auto}
 <div id="av" class="panel"></div>
 <div id="per" class="panel"></div>
 <div id="library" class="panel"></div>
+<div id="gav" class="panel"></div>
+<div id="simudc" class="panel">
+  <div class="grid">
+    <section class="card" style="grid-column: span 12">
+      <div class="row" style="justify-content: flex-end; gap: 8px">
+        <button class="btn btn-ghost" onclick="try{document.getElementById('simuFrame').contentWindow.location.reload()}catch(e){}">🔄 Recharger</button>
+        <a class="btn btn-primary" href="simulation_dc.html" target="_blank" rel="noopener">Ouvrir en plein écran</a>
+      </div>
+      <div class="hr"></div>
+      <iframe id="simuFrame" src="simulation_dc.html" style="width:100%; height:80vh; border:1px solid var(--border); border-radius:12px;" loading="lazy"></iframe>
+    </section>
+  </div>
+</div>
 
 <footer>CSV = hors-ligne • XLSX = connexion nécessaire (chargement de SheetJS). — v6.7</footer>
 
@@ -1309,6 +1324,130 @@ function buildPlanPanel(){
   // Initial render
   onViewChange(); // sets visibility + render
 }
+
+/* ===== Prise en charge GAV — Module intégré ===== */
+function buildGAVPanel() {
+  const root = document.getElementById('gav');
+  if(!root) return;
+  root.innerHTML = `<section id="tab-prise-gav" class="gav-wrap" data-module="prise-gav">
+  <style>
+    /* v1.8 — Theme-adaptive, zéro dépendance externe, CSP-friendly */
+    .gav-wrap{font-family:inherit;color:var(--text,inherit);background:inherit}
+    .gav-container{max-width:1200px;margin:0 auto;padding:16px}
+    .gav-header{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+    .gav-title{font-size:1.5rem;font-weight:800;color:var(--text,#e5e7eb);display:flex;gap:10px;align-items:center}
+    .gav-title .emoji{font-size:1.6rem}
+
+    /* Inputs */
+    .gav-select,.gav-input{appearance:none;border:1px solid var(--border,#1f2937);background:var(--bg,#0b1220);color:var(--text,#e5e7eb);border-radius:12px;padding:10px 12px;font-weight:600}
+    .gav-select:focus,.gav-input:focus{outline:none;box-shadow:0 0 0 2px rgba(59,130,246,.25)}
+
+    /* Badges & chips */
+    .gav-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:.8rem;font-weight:700;border:1px solid var(--border,#1f2937);background:var(--bg, transparent);color:var(--text,#e5e7eb)}
+    .gav-chip{display:inline-flex;gap:6px;align-items:center;padding:4px 8px;border-radius:999px;font-size:.75rem;border:1px solid var(--border,#1f2937);background:var(--bg, transparent);color:var(--muted,#94a3b8)}
+    .gav-pill{display:inline-block;padding:2px 8px;border-radius:999px;background:rgba(59,130,246,.15);color:#93c5fd;font-weight:800;font-size:.75rem;border:1px solid rgba(30,64,175,.6)}
+
+    /* Layout */
+    .gav-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;margin-top:16px}
+    .gav-card{grid-column:span 12;background:var(--panel, var(--card-bg, transparent));border:1px solid var(--border,#1f2937);border-radius:16px;padding:14px;box-shadow:0 12px 40px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.03);transition:transform .12s ease, box-shadow .12s ease}
+    .gav-card:hover{transform:translateY(-1px);box-shadow:0 16px 44px rgba(0,0,0,.34)}
+    @media(min-width:720px){.gav-card{grid-column:span 6}}
+    @media(min-width:1040px){.gav-card{grid-column:span 4}}
+
+    .gav-card-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+    .gav-card-title{font-weight:800;color:var(--text,#e5e7eb)}
+    .gav-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+    .gav-money{font-size:1.25rem;font-weight:900;color:var(--accent2,#3b82f6)}
+    .gav-muted{color:var(--muted,#94a3b8);font-size:.9rem}
+
+    /* Compare bar */
+    .gav-compare{margin-top:8px}
+    .gav-bar{height:10px;border-radius:10px;background:var(--bg,#0b1220);position:relative;overflow:hidden;border:1px solid var(--border,#1f2937)}
+    .gav-bar .left{position:absolute;left:0;top:0;height:100%;background:var(--barLeft,#334155)}
+    .gav-bar .right{position:absolute;left:0;top:0;height:100%;background:linear-gradient(90deg,var(--accent,#22c55e),var(--accent2,#3b82f6));opacity:.9}
+    .gav-figures{display:flex;justify-content:space-between;font-size:.8rem;margin-top:6px;color:var(--muted,#94a3b8)}
+
+    /* Actions / buttons */
+    .gav-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+    .gav-btn{cursor:pointer;border:1px solid transparent;background:linear-gradient(180deg,var(--accent2,#3b82f6),#1d4ed8);color:#fff;font-weight:800;border-radius:12px;padding:9px 12px}
+    .gav-btn.sec{background:transparent;color:var(--text,#e5e7eb);border-color:var(--border,#1f2937)}
+
+    /* Details & explainers */
+    .gav-details{display:none;margin-top:10px;border-top:1px dashed var(--border,#1f2937);padding-top:10px;font-size:.95rem;color:var(--text,#e5e7eb)}
+    .gav-explain{margin-top:10px;background:var(--panel, var(--card-bg, transparent));border:1px solid var(--border,#1f2937);border-radius:12px;padding:12px;display:none}
+    .gav-explain h4{margin:0 0 8px 0;font-size:.95rem}
+    .gav-explain ul{margin:0 0 8px 16px;padding:0}
+    .gav-explain li{margin:4px 0}
+
+    /* Table "Qui paie quoi ?" */
+    .gav-table{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:6px;font-size:.85rem;align-items:center}
+    .gav-table .th{font-weight:800}
+    .gav-table div{padding:6px 8px;background:var(--bg,#0b1220);border:1px solid var(--border,#1f2937);border-radius:8px;color:var(--text,#e5e7eb)}
+    .gav-table .muted{color:var(--muted,#94a3b8);font-weight:600}
+    .gav-legend{font-size:.75rem;color:var(--muted,#94a3b8);margin-top:6px}
+
+    /* Empty */
+    .gav-empty{padding:28px;background:transparent;border:1px dashed var(--border,#1f2937);border-radius:16px;text-align:center;color:var(--muted,#94a3b8)}
+
+    /* Copy fallback */
+    .gav-copypanel{margin-top:10px;background:var(--panel, var(--card-bg, transparent));border:1px solid var(--border,#1f2937);border-radius:12px;padding:12px;display:none}
+    .gav-copypanel h4{margin:0 0 8px 0;font-size:.95rem}
+    .gav-copytextarea{width:100%;min-height:80px;border:1px dashed var(--border,#1f2937);border-radius:8px;padding:8px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;background:var(--bg,#0b1220);color:var(--text,#e5e7eb)}
+    .gav-copyactions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+
+    /* Toast */
+    .gav-toast{position:fixed;right:12px;bottom:12px;background:var(--accent2,#3b82f6);color:#fff;padding:10px 12px;border-radius:12px;font-weight:800;box-shadow:0 10px 30px rgba(2,6,23,.2);z-index:9999}
+  </style>
+
+  <div class="gav-container">
+    <div class="gav-header">
+      <div class="gav-title" id="titre-prise-gav"><span class="emoji">🛡️</span>Prise en <span class="gav-pill">GAV</span></div>
+      <div class="gav-controls">
+        <select id="gav-produit" class="gav-select" aria-label="Produit">
+          <option value="GAV" selected>Produit : GAV</option>
+          <option value="OBSEQUES">Obsèques (bientôt)</option>
+          <option value="DECES">Capital Décès (bientôt)</option>
+        </select>
+        <select id="gav-cible" class="gav-select" aria-label="Cible">
+          <option value="TOUS" selected>🎯 Cible : Toutes</option>
+          <option value="Famille">Famille</option>
+          <option value="Senior">Senior</option>
+        </select>
+        <select id="gav-type" class="gav-select" aria-label="Type d'accident">
+          <option value="TOUS" selected>🏷️ Type : Tous</option>
+        </select>
+        <input id="gav-search" class="gav-input" placeholder="🔎 Rechercher (mots-clés)…"/>
+      </div>
+    </div>
+
+    <div id="gav-grid" class="gav-grid" role="list"></div>
+    <div id="gav-debug" style="display:none;margin-top:10px;padding:10px;border-radius:12px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:12px;white-space:pre-wrap;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"></div>
+    <div id="gav-empty" class="gav-empty" style="display:none">Aucun cas ne correspond à vos filtres.</div>
+
+    <div class="gav-foot" style="margin-top:12px;color:var(--muted,#94a3b8);font-size:.85rem">
+      <div>💡 Astuce RDV : utilisez « Copier l’argumentaire » pour coller une punchline adaptée au profil.</div>
+      <div class="gav-sep" style="height:8px"></div>
+      <div>Barèmes issus de vos CG GAV (AIPP ≥ 5 %, valeur du point, +50 % si tierce personne, abattement > 70 ans, souffrances/esthétique 0,5→7, hospi 50 €/jour, etc.). Montants illustratifs mais cohérents. Adaptez selon expertises.</div>
+    </div>
+  </div>
+
+  
+</section>`;
+  try {
+    var s = document.createElement('script');
+    s.type = 'text/javascript';
+    s.text = "(function(){\n    'use strict';\n    function dbgEl(){ return document.getElementById('gav-debug'); }\n    function dbg(m){ try{ var el=dbgEl(); if(!el) return; el.style.display='block'; var t=new Date().toLocaleTimeString('fr-FR'); el.textContent += '\\n['+t+'] '+m; }catch(e){} }\n    dbg('Init module PriseGAV…');\n\n    // --- Auto-skin pour s'intégrer au thème hôte (détecte fond clair/sombre)\n    var ROOT = document.getElementById('tab-prise-gav');\n    function parseRGB(str){ try{ var inside=(str||'').split('(')[1]; if(!inside) return [15,23,42]; inside=inside.split(')')[0]; var p=inside.split(','); return [parseInt(p[0],10)||15, parseInt(p[1],10)||23, parseInt(p[2],10)||42]; }catch(e){ return [15,23,42]; } }\n    function luminance(r,g,b){ r/=255; g/=255; b/=255; var a=[r,g,b].map(function(v){ return v<=0.03928? v/12.92 : Math.pow((v+0.055)/1.055,2.4); }); return 0.2126*a[0]+0.7152*a[1]+0.0722*a[2]; }\n    function applyAutoSkin(){\n      try{\n        if(!ROOT) return;\n        // 1) Si l'hôte fournit des tokens, on en hérite et on ne force rien\n        var csRoot = getComputedStyle(ROOT);\n        var hasHostTokens = ['--text','--muted','--panel','--border'].some(function(t){\n          return (csRoot.getPropertyValue(t)||'').trim();\n        });\n        if(hasHostTokens && !ROOT.getAttribute('data-force-skin')){\n          ROOT.setAttribute('data-skin','host');\n          return;\n        }\n\n        // 2) Palettes de secours clair/sombre\n        var light = {'--text':'#0f172a','--muted':'#475569','--bg':'transparent','--panel':'var(--card-bg, transparent)','--border':'rgba(15,23,42,0.08)','--accent':'#22c55e','--accent2':'#2563eb','--barLeft':'#e2e8f0'};\n        var dark  = {'--text':'#e5e7eb','--muted':'#94a3b8','--bg':'transparent','--panel':'var(--card-bg, rgba(15,23,42,.9))','--border':'#1f2937','--accent':'#22c55e','--accent2':'#3b82f6','--barLeft':'#334155'};\n\n        var forced = ROOT.getAttribute('data-force-skin');\n        if(forced==='light' || forced==='dark'){\n          var pf = forced==='light'? light : dark;\n          for(var fk in pf){ ROOT.style.setProperty(fk, pf[fk]); }\n          ROOT.setAttribute('data-skin', forced);\n          return;\n        }\n\n        // 3) Détection auto sur <body>\n        var csBody = getComputedStyle(document.body);\n        var bg = csBody.backgroundColor||'';\n        var textCol = csBody.color||'';\n        function _parseRGB(str){ try{ var inside=(str||'').split('(')[1]; if(!inside) return [15,23,42]; inside=inside.split(')')[0]; var p=inside.split(','); return [parseInt(p[0],10)||15, parseInt(p[1],10)||23, parseInt(p[2],10)||42]; }catch(e){ return [15,23,42]; } }\n        function _lum(r,g,b){ r/=255; g/=255; b/=255; var a=[r,g,b].map(function(v){ return v<=0.03928? v/12.92 : Math.pow((v+0.055)/1.055,2.4); }); return 0.2126*a[0]+0.7152*a[1]+0.0722*a[2]; }\n        var rgb=_parseRGB(bg); var L=_lum(rgb[0],rgb[1],rgb[2]);\n        var pal = (L>0.6)? light : dark;\n        var bgStr=(bg+'').toLowerCase();\n        var isTrans = bgStr.indexOf('transparent')>-1 || (bgStr.indexOf('rgba')>-1 && bgStr.trim().endsWith(', 0)'));\n        if(isTrans || !bg){ var tr=_parseRGB(textCol); var Lt=_lum(tr[0],tr[1],tr[2]); pal = (Lt<0.5)? light : dark; }\n\n        for(var k in pal){ ROOT.style.setProperty(k, pal[k]); }\n        ROOT.setAttribute('data-skin', pal===light?'light':'dark');\n      }catch(e){}\n    }\n    applyAutoSkin();\n    try{ var mql=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)'); if(mql&&mql.addEventListener){ mql.addEventListener('change', function(){ applyAutoSkin(); }); } }catch(e){}\n    try{ var mo=new MutationObserver(function(){ applyAutoSkin(); }); mo.observe(document.body,{attributes:true,attributeFilter:['class','style']}); }catch(e){}\n\n    function euro(n){ return Number(n||0).toLocaleString('fr-FR',{style:'currency',currency:'EUR'}); }\n\n    // --- Données des 10 cas (Famille x5, Senior x5) ---\n    var CASES = [\n      {id:'F1', cible:'Famille', titre:'Enfant – brûlure eau bouillante', emoji:'🔥', type:['Brûlure','Enfant'], resume:'Brûlures 2e degré profond, greffe, cicatrices.', sans:{resteMedical:0, pertesRevenus:0, annexes:500}, gav:{ip:{taux:8, montant:29440}, souff:6500, esth:6500, hospiJ:14, hospi:700, pertesRevenus:0, prothese:0, logement:0, fauteuil:0, autres:0}, tags:['Hôpital 14 j','Cicatrices importantes']},\n      {id:'F2', cible:'Famille', titre:'Parent – chute d’échelle (bricolage)', emoji:'🪜', type:['Chute','Adulte'], resume:'Fracture lombaire + jambe, séquelles dos, arrêt 6 mois.', sans:{resteMedical:0, pertesRevenus:4000, annexes:0}, gav:{ip:{taux:20, montant:73600}, souff:6500, esth:0, hospiJ:10, hospi:500, pertesRevenus:4000, prothese:0, logement:0, fauteuil:0, autres:0}, tags:['Rééduc','Arrêt 6 mois']},\n      {id:'F3', cible:'Famille', titre:'Ado – rupture LCA (sport à risque)', emoji:'🥊', type:['Sport','Ado'], resume:'Chirurgie + rééduc; année scolaire perdue.', sans:{resteMedical:0, pertesRevenus:0, annexes:920}, gav:{ip:{taux:8, montant:29440}, souff:4000, esth:0, hospiJ:4, hospi:200, pertesRevenus:0, prothese:0, logement:0, fauteuil:0, autres:920}, tags:['Perte année scolaire','Hospi 4 j']},\n      {id:'F4', cible:'Famille', titre:'Trottinette électrique – 4 incisives cassées', emoji:'🛴', type:['EDP','Dentaire'], resume:'Couronnes dentaires coûteuses.', sans:{resteMedical:0, pertesRevenus:0, annexes:1970}, gav:{ip:{taux:6, montant:22080}, souff:2000, esth:0, hospiJ:0, hospi:0, pertesRevenus:0, prothese:1970, logement:0, fauteuil:0, autres:0}, tags:['Prothèse dentaire','EDP motorisé']},\n      {id:'F5', cible:'Famille', titre:'Parent – section tendon (cuisine)', emoji:'🔪', type:['Coupure','Adulte'], resume:'Chirurgie main, perte de force, arrêt 2 mois.', sans:{resteMedical:0, pertesRevenus:1500, annexes:0}, gav:{ip:{taux:7, montant:25760}, souff:5000, esth:0, hospiJ:3, hospi:150, pertesRevenus:1500, prothese:0, logement:0, fauteuil:0, autres:0}, tags:['Main dominante','Rééduc']},\n      {id:'S1', cible:'Senior', titre:'75 ans – fracture col fémur', emoji:'🦴', type:['Chute','Hanche'], resume:'Prothèse, boiterie, adaptation douche.', sans:{resteMedical:0, pertesRevenus:0, annexes:1500}, gav:{ip:{taux:10, montant:27600}, souff:4000, esth:1000, hospiJ:21, hospi:1050, pertesRevenus:0, prothese:0, logement:500, fauteuil:0, autres:0}, tags:['Rééduc','Aménagement logt']},\n      {id:'S2', cible:'Senior', titre:'72 ans – polytrauma + aide humaine', emoji:'♿', type:['Chute','Polytrauma'], resume:'Paraplégie incomplète, fauteuil, gros travaux.', sans:{resteMedical:0, pertesRevenus:0, annexes:35000}, gav:{ip:{taux:70, montant:637875, bonus:'tierce personne +50%'}, souff:31000, esth:0, hospiJ:35, hospi:1500, pertesRevenus:0, prothese:5000, logement:30000, fauteuil:0, autres:0}, tags:['Tierce personne','Gros travaux','Plafonds élevés']},\n      {id:'S3', cible:'Senior', titre:'70 ans – fracture humérus', emoji:'💪', type:['Chute','Bras'], resume:'Chirurgie, mobilité réduite.', sans:{resteMedical:0, pertesRevenus:0, annexes:0}, gav:{ip:{taux:8, montant:29440}, souff:4000, esth:0, hospiJ:5, hospi:250, pertesRevenus:0, prothese:0, logement:0, fauteuil:0, autres:0}, tags:['Hospi 5 j']},\n      {id:'S4', cible:'Senior', titre:'80 ans – chute, édentation (prothèse)', emoji:'🦷', type:['Chute','Dentaire'], resume:'Prothèses dentaires onéreuses.', sans:{resteMedical:0, pertesRevenus:0, annexes:1500}, gav:{ip:{taux:5, montant:9200}, souff:2000, esth:0, hospiJ:0, hospi:0, pertesRevenus:0, prothese:1500, logement:0, fauteuil:0, autres:0}, tags:['Prothèse dentaire']},\n      {id:'S5', cible:'Senior', titre:'68 ans – agression, fracture orbitaire', emoji:'🚨', type:['Agression','Visage'], resume:'Cicatrice faciale, séquelles esthétiques.', sans:{resteMedical:0, pertesRevenus:0, annexes:0}, gav:{ip:{taux:6, montant:22080}, souff:10000, esth:12500, hospiJ:4, hospi:200, pertesRevenus:0, prothese:0, logement:0, fauteuil:0, autres:0}, tags:['Préjudice esthétique','Hospi 4 j']}\n    ];\n\n    // --- Sélecteurs DOM ---\n    var els = {\n      grid: document.getElementById('gav-grid'),\n      empty: document.getElementById('gav-empty'),\n      cible: document.getElementById('gav-cible'),\n      type: document.getElementById('gav-type'),\n      produit: document.getElementById('gav-produit'),\n      search: document.getElementById('gav-search')\n    };\n    dbg('Refs DOM ok: '+Object.keys(els).map(function(k){return k+':'+(!!els[k]);}).join(', '));\n\n    var required = ['grid','empty','cible','type','produit','search'];\n    for(var i=0;i<required.length;i++){ var k=required[i]; if(!els[k]){ console.error('[PriseGAV] Élément manquant:', k); dbg('Élément manquant: '+k); } }\n\n    if(els.produit){ els.produit.value='GAV'; dbg('Produit forcé: '+els.produit.value); }\n    if(els.cible) els.cible.value='TOUS';\n    if(els.type) els.type.value='TOUS';\n\n    // Remplit le filtre Type dynamiquement (unique)\n    try{\n      var typeSet = {};\n      for(i=0;i<CASES.length;i++){ var tarr=CASES[i].type||[]; for(var j=0;j<tarr.length;j++){ typeSet[tarr[j]] = true; } }\n      var ALL_TYPES = Object.keys(typeSet);\n      if(els.type && els.type.options.length <= 1){\n        for(i=0;i<ALL_TYPES.length;i++){ var o=document.createElement('option'); o.value=ALL_TYPES[i]; o.textContent=ALL_TYPES[i]; els.type.appendChild(o); }\n        dbg('Types injectés: '+ALL_TYPES.join(', '));\n      }\n    }catch(e){ console.warn('[PriseGAV] type options', e); dbg('Type options error: '+(e && e.message? e.message : e)); }\n\n    function filtered(){\n      var cible = (els.cible && els.cible.value) ? els.cible.value : 'TOUS';\n      var type = (els.type && els.type.value) ? els.type.value : 'TOUS';\n      var q = (els.search && els.search.value ? els.search.value : '').trim().toLowerCase();\n      return CASES.filter(function(c){\n        if(cible!=='TOUS' && c.cible!==cible) return false;\n        if(type!=='TOUS' && !(c.type||[]).includes(type)) return false;\n        if(q){\n          var hay = [c.id,c.titre,c.resume,c.cible].concat(c.tags||[]).concat(c.type||[]).join(' ').toLowerCase();\n          if(hay.indexOf(q) === -1) return false;\n        }\n        return true;\n      });\n    }\n\n    function computeBars(c){\n      var sansTotal = (c.sans.resteMedical||0)+(c.sans.pertesRevenus||0)+(c.sans.annexes||0);\n      var g=c.gav||{}; var gavTotal = (g.ip&&g.ip.montant||0)+(g.souff||0)+(g.esth||0)+(g.hospi||0)+(g.pertesRevenus||0)+(g.prothese||0)+(g.logement||0)+(g.fauteuil||0)+(g.autres||0);\n      var max = Math.max(1, sansTotal, gavTotal);\n      var leftW = Math.round((sansTotal/max)*100);\n      var rightW = Math.round((gavTotal/max)*100);\n      return {sansTotal:sansTotal, gavTotal:gavTotal, leftW:leftW, rightW:rightW};\n    }\n\n    function fmtBreakdown(g){\n      var parts=[];\n      if(g.ip) parts.push('IP '+g.ip.taux+'%: '+euro(g.ip.montant)+(g.ip.bonus?(' ('+g.ip.bonus+')'):''));\n      if(g.souff) parts.push('Souffrances: '+euro(g.souff));\n      if(g.esth) parts.push('Esthétique: '+euro(g.esth));\n      if(g.pertesRevenus) parts.push('Pertes de revenus: '+euro(g.pertesRevenus));\n      if(g.hospi) parts.push('Hospi ('+(g.hospiJ||'?')+' j): '+euro(g.hospi));\n      if(g.prothese || g.fauteuil) parts.push('Prothèse/fauteuil: '+euro((g.prothese||0)+(g.fauteuil||0)));\n      if(g.logement) parts.push('Logement adapté: '+euro(g.logement));\n      if(g.autres) parts.push('Autres: '+euro(g.autres));\n      return parts.join(' • ');\n    }\n\n    function pitch(c){\n      var sums = computeBars(c);\n      return '\"'+c.titre+'\" ('+c.cible+') — Sans GAV: '+euro(sums.sansTotal)+' à supporter. Avec GAV: indemnisation ~ '+euro(sums.gavTotal)+' (dont '+fmtBreakdown(c.gav)+').';\n    }\n\n    function mk(tag, cls, text){ var el=document.createElement(tag); if(cls) el.className=cls; if(text!=null) el.textContent=text; return el; }\n\n    function card(c){\n      var sums = computeBars(c);\n      var article = mk('article','gav-card'); article.setAttribute('role','listitem');\n\n      // Head\n      var head = mk('div','gav-card-head');\n      var left = mk('div','');\n      var title = mk('div','gav-card-title', (c.emoji?c.emoji+' ':'')+c.titre);\n      left.appendChild(title);\n      var tags = mk('div','gav-tags');\n      var chipCible = mk('span','gav-chip', c.cible); tags.appendChild(chipCible);\n      var types = c.type||[]; for(var i=0;i<types.length;i++){ tags.appendChild(mk('span','gav-chip', types[i])); }\n      left.appendChild(tags);\n      var right = mk('div',''); right.style.textAlign='right';\n      right.appendChild(mk('div','gav-money', euro(sums.gavTotal)));\n      right.appendChild(mk('div','gav-muted','Indemnisation GAV estimée'));\n      head.appendChild(left); head.appendChild(right);\n      article.appendChild(head);\n\n      // Resume\n      var resume = mk('div','gav-muted', c.resume); resume.style.marginTop='6px'; article.appendChild(resume);\n\n      // Compare bar\n      var compare = mk('div','gav-compare');\n      var bar = mk('div','gav-bar');\n      var leftBar = mk('div','left'); leftBar.style.width = String(sums.leftW)+'%';\n      var rightBar = mk('div','right'); rightBar.style.width = String(sums.rightW)+'%';\n      bar.appendChild(leftBar); bar.appendChild(rightBar);\n      compare.appendChild(bar);\n      var figs = mk('div','gav-figures');\n      var f1 = mk('div',null,'Sans GAV : '); var strong1 = mk('strong',null,euro(sums.sansTotal)); f1.appendChild(strong1);\n      var f2 = mk('div',null,'Avec GAV : '); var strong2 = mk('strong',null,euro(sums.gavTotal)); f2.appendChild(strong2);\n      figs.appendChild(f1); figs.appendChild(f2);\n      compare.appendChild(figs);\n      article.appendChild(compare);\n\n      // Actions\n      var actions = mk('div','gav-actions');\n      var btnDet = mk('button','gav-btn','Voir le détail'); btnDet.setAttribute('data-act','details');\n      var btnCopy = mk('button','gav-btn sec','Copier l’argumentaire'); btnCopy.setAttribute('data-act','copy');\n      var btnExp = mk('button','gav-btn sec','Plus d’explications'); btnExp.setAttribute('data-act','explain'); btnExp.setAttribute('aria-expanded','false');\n      actions.appendChild(btnDet); actions.appendChild(btnCopy); actions.appendChild(btnExp);\n      article.appendChild(actions);\n\n      // Details\n      var details = mk('div','gav-details');\n      var sansLine = mk('div',null,'');\n      var sansBadge = mk('span','gav-badge','🧾 Sans GAV'); sansLine.appendChild(sansBadge);\n      sansLine.appendChild(document.createTextNode(' Reste médical : '));\n      var s1 = mk('strong',null,euro(c.sans.resteMedical||0)); sansLine.appendChild(s1);\n      sansLine.appendChild(document.createTextNode(' • Pertes de revenus : '));\n      var s2 = mk('strong',null,euro(c.sans.pertesRevenus||0)); sansLine.appendChild(s2);\n      sansLine.appendChild(document.createTextNode(' • Annexes : '));\n      var s3 = mk('strong',null,euro(c.sans.annexes||0)); sansLine.appendChild(s3);\n      sansLine.appendChild(document.createTextNode(' → Total: '));\n      var sTot = mk('strong',null,euro(sums.sansTotal)); sansLine.appendChild(sTot);\n      details.appendChild(sansLine);\n\n      var gavLine = mk('div',null,'');\n      var gavBadge = mk('span','gav-badge','💶 Avec GAV'); gavLine.appendChild(gavBadge);\n      gavLine.appendChild(document.createTextNode(' '+fmtBreakdown(c.gav)+' → '));\n      var gTot = mk('strong',null,euro(sums.gavTotal)); gavLine.appendChild(gTot);\n      details.appendChild(gavLine);\n\n      if(c.tags && c.tags.length){\n        var tagsWrap = mk('div','gav-tags'); tagsWrap.style.marginTop = '8px';\n        for(i=0;i<c.tags.length;i++){ tagsWrap.appendChild(mk('span','gav-chip', c.tags[i])); }\n        details.appendChild(tagsWrap);\n      }\n\n      // Bloc pédagogique\n      var explain = mk('div','gav-explain');\n      var h4 = mk('h4',null,'Explication des prises en charge');\n      explain.appendChild(h4);\n      var ul = mk('ul',null,'');\n      var bullets = [\n        'Sécurité sociale (AMO) : rembourse selon des tarifs de responsabilité (ex. hospitalisation 80 % du tarif ; le forfait journalier est souvent pris en charge par la mutuelle).',\n        'Mutuelle « classique » 100 % BR : complète le ticket modérateur mais ne couvre pas les dépassements d’honoraires, implants/couronnes haut de gamme, aménagement du logement, perte de revenus, ni les préjudices extra-patrimoniaux.',\n        'La GAV indemnise les conséquences de l’accident : Incapacité Permanente (AIPP) via barème, souffrances endurées, préjudice esthétique, aide humaine, aménagements, appareillages, pertes de revenus résiduelles, etc.'\n      ];\n      for(i=0;i<bullets.length;i++){ var li=mk('li',null,bullets[i]); ul.appendChild(li); }\n      explain.appendChild(ul);\n\n      var h4b = mk('h4',null,'Qui paie quoi ?');\n      explain.appendChild(h4b);\n      var tbl = mk('div','gav-table');\n      var headers = ['Poste','AMO','Mutuelle','GAV']; for(i=0;i<headers.length;i++){ var d=mk('div','th',headers[i]); tbl.appendChild(d); }\n      var rows = [\n        ['Soins / hospitalisation','✓','✓','∼'],\n        ['Dépassements / dentaire onéreux','✗','∼','✓'],\n        ['Pertes de revenus','∼','✗','✓'],\n        ['Incapacité Permanente (AIPP)','✗','✗','✓'],\n        ['Souffrances endurées','✗','✗','✓'],\n        ['Préjudice esthétique','✗','✗','✓'],\n        ['Aide humaine / Tierce personne','✗','✗','✓'],\n        ['Aménagement logement/véhicule','✗','✗','✓'],\n        ['Appareils spéciaux / fauteuil','✗','✗','✓']\n      ];\n      for(i=0;i<rows.length;i++){ for(var j=0;j<rows[i].length;j++){ var cell = mk('div', j===0? 'muted' : '', rows[i][j]); tbl.appendChild(cell); } }\n      explain.appendChild(tbl);\n      var legend = mk('div','gav-legend','✓ couvert • ∼ partiel/selon contrat • ✗ non couvert'); explain.appendChild(legend);\n\n      var h4c = mk('h4',null,'Comment est calculée l’IP ?'); explain.appendChild(h4c);\n      var pcalc = mk('div','gav-muted','Exemple indicatif : Montant = Valeur du point × taux AIPP (ajusté selon l’âge ; + majoration si tierce personne). Ex. 3 680 € / point ; abattement au-delà de 70 ans ; +50 % si aide humaine durable.'); explain.appendChild(pcalc);\n\n      details.appendChild(explain);\n      article.appendChild(details);\n\n      // Panneau de copie (fallback si Clipboard API bloquée)\n      var copyPanel = mk('div','gav-copypanel');\n      var ch = mk('h4',null,'Argumentaire à copier'); copyPanel.appendChild(ch);\n      var ta = document.createElement('textarea'); ta.className = 'gav-copytextarea'; ta.setAttribute('readonly','readonly'); copyPanel.appendChild(ta);\n      var cpAct = mk('div','gav-copyactions');\n      var bSel = mk('button','gav-btn sec','Sélectionner le texte');\n      var bClose = mk('button','gav-btn sec','Fermer');\n      cpAct.appendChild(bSel); cpAct.appendChild(bClose);\n      copyPanel.appendChild(cpAct);\n      article.appendChild(copyPanel);\n\n      bSel.addEventListener('click', function(){ try{ ta.focus(); ta.select(); }catch(e){} });\n      bClose.addEventListener('click', function(){ copyPanel.style.display = 'none'; });\n\n      // Bouton d’explication (toggle) — force l’ouverture des détails si nécessaire\n      btnExp.addEventListener('click', function(){\n        if(details.style.display !== 'block'){ details.style.display = 'block'; }\n        var open = (explain.style.display === 'block');\n        explain.style.display = open ? 'none' : 'block';\n        btnExp.setAttribute('aria-expanded', open ? 'false' : 'true');\n        if(!open){ try{ explain.scrollIntoView({behavior:'smooth', block:'nearest'}); }catch(e){} }\n      });\n\n      // Events\n      btnDet.addEventListener('click', function(){\n        var isOpen = (details.style.display === 'block');\n        details.style.display = isOpen ? 'none' : 'block';\n        if(isOpen){ explain.style.display = 'none'; btnExp.setAttribute('aria-expanded','false'); }\n      });\n\n      btnCopy.addEventListener('click', function(){\n        var text = pitch(c);\n        var ok = false;\n        if(window.isSecureContext && navigator && navigator.clipboard && navigator.clipboard.writeText){\n          navigator.clipboard.writeText(text).then(function(){ ok = true; }).catch(function(){}).finally(function(){\n            if(ok){\n              try{ var t = mk('div','gav-toast','✅ Argumentaire copié'); document.body.appendChild(t); setTimeout(function(){ t.remove(); },1200);}catch(e){}\n            }else{\n              ta.value = text; copyPanel.style.display = 'block'; try{ ta.focus(); ta.select(); }catch(e){}\n            }\n          });\n        } else {\n          ta.value = text; copyPanel.style.display = 'block'; try{ ta.focus(); ta.select(); }catch(e){}\n        }\n      });\n\n      return article;\n    }\n\n    function render(){\n      if(els.produit && els.produit.value!=='GAV'){ els.produit.value='GAV'; dbg('Produit rétabli à GAV'); }\n      if(!els.grid || !els.empty){ dbg('Conteneurs manquants, abort render'); return; }\n      var list = filtered();\n      dbg('Render: '+list.length+' carte(s)');\n      els.grid.innerHTML='';\n      if(!list.length){ els.empty.style.display='block'; els.empty.textContent='Aucun cas ne correspond à vos filtres.'; return; }\n      els.empty.style.display='none';\n      for(var i=0;i<list.length;i++){ els.grid.appendChild(card(list[i])); }\n    }\n\n    function safeRender(){ try{ render(); } catch(e){ console.error('[PriseGAV] Erreur de rendu', e); dbg('Erreur de rendu: '+(e&&e.message?e.message:e)); if(els.grid){ els.grid.innerHTML = '<div class=\"gav-empty\">Erreur d\\'initialisation du module : '+(e&&e.message?e.message:e)+'</div>'; } if(els.empty){ els.empty.style.display='none'; } } }\n\n    // Listeners\n    if(els.cible) els.cible.addEventListener('change', safeRender);\n    if(els.type) els.type.addEventListener('change', safeRender);\n    if(els.produit) els.produit.addEventListener('change', function(){ safeRender(); });\n    if(els.search) els.search.addEventListener('input', function(){ clearTimeout(window.__gavT); window.__gavT = setTimeout(safeRender, 120); });\n\n    // API onglet\n    window.PriseGAV = {\n      show: function(){ var sec = document.getElementById('tab-prise-gav'); if(sec) sec.style.display = 'block'; if(els && els.produit) els.produit.value = 'GAV'; dbg('show() appelé'); safeRender(); },\n      hide: function(){ var sec = document.getElementById('tab-prise-gav'); if(sec) sec.style.display = 'none'; },\n      force: function(){ dbg('force()'); safeRender(); }\n    };\n\n    // Premier rendu\n    safeRender();\n  })();";
+    root.appendChild(s);
+  } catch(e) {
+    console.error('[GAV] Échec injection du script:', e);
+    var dbg = document.createElement('div');
+    dbg.className = 'debug';
+    dbg.textContent = 'Erreur d\'initialisation du module GAV: ' + (e && e.message ? e.message : e);
+    root.appendChild(dbg);
+  }
+  try { if (window.PriseGAV && typeof window.PriseGAV.force === 'function') window.PriseGAV.force(); } catch(e){}
+}
+
 /* ===== Tabs bootstrap ===== */
 
 document.querySelectorAll('.tab').forEach(t => {
@@ -1324,6 +1463,7 @@ document.querySelectorAll('.tab').forEach(t => {
     if(id==='av' && !document.getElementById('av').dataset.ready){ buildAVPanel(); document.getElementById('av').dataset.ready='1'; }
     if(id==='per' && !document.getElementById('per').dataset.ready){ buildPERPanel(); document.getElementById('per').dataset.ready='1'; }
     if(id==='library' && !document.getElementById('library').dataset.ready){ buildLibraryPanel(); document.getElementById('library').dataset.ready='1'; }
+    if(id==='gav' && !document.getElementById('gav').dataset.ready){ buildGAVPanel(); document.getElementById('gav').dataset.ready='1'; }
 
           });
 });
