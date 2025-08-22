@@ -1832,6 +1832,7 @@ function buildBilanPanel(){
 
 /* ===== PER — Simulateur (intégré) ===== */
 function buildPERPanel(){
+
   const root = document.getElementById('per');
   if(!root) return;
   root.innerHTML = `
@@ -1842,12 +1843,12 @@ function buildPERPanel(){
           <span class="small">Chargé via fichier externe (même dossier) • recommandé pour l'hébergement en ligne</span>
         </div>
         <div class="small" id="per-status" style="opacity:.8;margin-bottom:8px">Vérification du fichier…</div>
-        <div style="height:1600px; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#0b1020">
-          <iframe id="per-sim" title="Simulateur PER" style="width:100%; height:100%; border:0; background:#0b1020"></iframe>
+        <div class="row" style="justify-content: flex-end; gap: 8px">
+          <button class="btn btn-ghost" onclick="try{document.getElementById('per-sim').contentWindow.location.reload()}catch(e){}">🔄 Recharger</button>
+          <a id="per-direct-link" class="btn btn-primary" href="#" target="_blank" rel="noopener">Ouvrir en plein écran</a>
         </div>
-        <div class="row" style="margin-top:10px">
-          <a id="per-direct-link" class="btn" href="#" target="_blank" rel="noopener">Ouvrir le simulateur PER dans un nouvel onglet</a>
-        </div>
+        <div class="hr"></div>
+        <iframe id="per-sim" title="Simulateur PER" style="width:100%; height:1600px; border:0; background:#0b1020; border:1px solid var(--border); border-radius:12px; overflow:hidden"></iframe>
       </section>
     </div>`;
   const perPath = './Simulateur_PER_ProPlus_v5_4_topoUnder_fixSortie.html';
@@ -1858,27 +1859,16 @@ function buildPERPanel(){
   (async () => {
     try {
       const r = await fetch(perPath, { method: 'HEAD' });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      statusEl.textContent = 'Chargement du simulateur…';
+      if (!r.ok) throw new Error('not found');
+      statusEl.textContent = '';
       fram.src = perPath;
-    } catch (err) {
-      statusEl.innerHTML = 'Impossible de charger le simulateur PER. ' +
-        'Vérifiez que le fichier <code>Simulateur_PER_ProPlus_v5_4_topoUnder_fixSortie.html</code> ' +
-        'se trouve au <b>même niveau</b> que <code>index.html</code> et que le nom est <b>exact</b>.' +
-        '<br>Erreur : ' + String(err);
-      const tips = document.createElement('div');
-      tips.className = 'small';
-      tips.style.marginTop = '8px';
-      tips.innerHTML = '<ul>' +
-        '<li>Dans GitHub → Code, vérifiez que vous voyez bien les 2 fichiers côte à côte.</li>' +
-        '<li>Sur la page, essayez d’ouvrir le lien ci-dessus “Ouvrir le simulateur PER…” : si 404, le fichier manque ou le nom diffère.</li>' +
-        '<li>Si vous venez de l’ajouter, attendez 30–60 s que GitHub Pages se mette à jour.</li>' +
-        '</ul>';
-      root.querySelector('section.card').appendChild(tips);
-      console.error(err);
+    } catch(e) {
+      statusEl.textContent = 'Fichier introuvable : ' + perPath;
     }
   })();
+
 }
+
 /* ===== Assurance Vie — Simulateur (intégré) ===== */
 function buildAVPanel(){
 
