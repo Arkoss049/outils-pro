@@ -83,6 +83,7 @@ svg{width:100%; height:auto}
   <div class="tab" data-tab="library">Argumentaires</div>
   <div class="tab" data-tab="gav">Aide à la vente (GAV)</div>
   <div class="tab" data-tab="simudc">Simulation DC</div>
+  <div class="tab" data-tab="courrier">Modèles Courrier</div>
 </div>
 
 <div id="prev" class="panel active"></div>
@@ -102,6 +103,20 @@ svg{width:100%; height:auto}
       </div>
       <div class="hr"></div>
       <iframe id="simuFrame" src="simulation_dc.html" style="width:100%; height:80vh; border:1px solid var(--border); border-radius:12px;" loading="lazy"></iframe>
+    </section>
+  </div>
+</div>
+
+
+<div id="courrier" class="panel">
+  <div class="grid">
+    <section class="card" style="grid-column: span 12">
+      <div class="row" style="justify-content: flex-end; gap: 8px">
+        <button class="btn btn-ghost" onclick="try{document.getElementById('courrierFrame').contentWindow.location.reload()}catch(e){}">🔄 Recharger</button>
+        <a class="btn btn-primary" href="onglet_courrier_plus_v4.html" target="_blank" rel="noopener">Ouvrir en plein écran</a>
+      </div>
+      <div class="hr"></div>
+      <iframe id="courrierFrame" src="onglet_courrier_plus_v4.html" style="width:100%; height:80vh; border:1px solid var(--border); border-radius:12px;" loading="lazy"></iframe>
     </section>
   </div>
 </div>
